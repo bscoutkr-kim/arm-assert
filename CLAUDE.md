@@ -39,7 +39,7 @@
 
 | Skill | 용도 |
 |-------|------|
-| `/arm-assert-analyzer` | **핵심**: ARM Multi-Core Bare-Metal Assert 분석 전문 (T32/ELF/Source 기반 RCA) |
+| `/arm-assert-analyzer` | **핵심**: ARM Assert 가설 기반 분석 — FW 소스 중심, T32는 증거 수집용 (Hypothesis-Driven RCA) |
 | `/implementation-plan` | 작업 계획 수립 및 승인 프로세스 |
 | `/code-writing-guard` | 코드 작성 표준 — 중복 금지, 클린 코드 |
 | `/jsdoc-standards` | JSDoc 및 @ts-check 문서화 표준 |

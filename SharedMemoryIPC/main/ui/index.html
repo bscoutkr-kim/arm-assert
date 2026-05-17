@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIPC Multi-Agent 메신저</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Glassmorphism 컨테이너 */
+        .messenger-container {
+            width: 92%;
+            height: 92vh;
+            max-width: 900px;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 헤더 영역 */
+        .messenger-header {
+            padding: 20px 24px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot-active {
+            width: 10px;
+            height: 10px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.6; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .header-title {
+            color: #f8fafc;
+            font-size: 1.15rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .header-subtitle {
+            color: #94a3b8;
+            font-size: 0.78rem;
+            margin-top: 2px;
+        }
+
+        .channel-tag {
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            color: #818cf8;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* 챗 히스토리 영역 */
+        .chat-history {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 스크롤바 스타일 */
+        .chat-history::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-history::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .chat-history::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+        }
+        .chat-history::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        /* 메시지 버블 디자인 */
+        .message-row {
+            display: flex;
+            flex-direction: column;
+            max-width: 70%;
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-row.user {
+            align-self: flex-end;
+        }
+
+        .message-row.main-ai {
+            align-self: flex-start;
+        }
+
+        .message-row.agent-a {
+            align-self: flex-start;
+        }
+
+        .message-row.agent-b {
+            align-self: flex-start;
+        }
+
+        .message-sender {
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            margin-left: 6px;
+            color: #94a3b8;
+        }
+
+        .message-row.user .message-sender {
+            align-self: flex-end;
+            margin-right: 6px;
+            color: #a5b4fc;
+        }
+
+        .message-bubble {
+            padding: 12px 18px;
+            border-radius: 16px;
+            font-size: 0.93rem;
+            line-height: 1.5;
+            color: #f1f5f9;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            white-space: pre-wrap; /* 코드가 깨지지 않고 정상 개행되도록 처리 */
+        }
+
+        /* User: Indigo 버블 */
+        .message-row.user .message-bubble {
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            border-bottom-right-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Main AI: Emerald Gradient 버블 */
+        .message-row.main-ai .message-bubble {
+            background: linear-gradient(135deg, #0d9488 0%, #115e59 100%);
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(20, 184, 166, 0.25);
+            color: #f0fdfa;
+        }
+
+        /* Agent A: Cool Slate 버블 */
+        .message-row.agent-a .message-bubble {
+            background: rgba(30, 41, 59, 0.85);
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-family: 'Consolas', 'Courier New', monospace; /* 코드스러움 렌더링 */
+        }
+
+        /* Agent B: Royal Purple 버블 */
+        .message-row.agent-b .message-bubble {
+            background: rgba(88, 28, 135, 0.55);
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(168, 85, 247, 0.35);
+            color: #f5f3ff;
+        }
+
+        .message-time {
+            font-size: 0.65rem;
+            color: rgba(255, 255, 255, 0.35);
+            margin-top: 4px;
+            align-self: flex-end;
+        }
+
+        .message-row.user .message-time {
+            color: rgba(255, 255, 255, 0.45);
+        }
+
+        /* 시스템 메시지 */
+        .system-message {
+            align-self: center;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            color: #64748b;
+            text-align: center;
+            max-width: 80%;
+            margin: 8px 0;
+        }
+
+        /* 입력 폼 영역 */
+        .input-area {
+            padding: 20px 24px;
+            background: rgba(15, 23, 42, 0.35);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 14px 20px;
+            font-size: 0.95rem;
+            color: #f8fafc;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .chat-input::placeholder {
+            color: #475569;
+        }
+
+        .chat-input:focus {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            border: none;
+            outline: none;
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(79, 70, 229, 0.45);
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+        }
+
+        .send-btn svg {
+            fill: #ffffff;
+            width: 20px;
+            height: 20px;
+            margin-left: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="messenger-container">
+        <!-- 헤더 -->
+        <div class="messenger-header">
+            <div class="header-left">
+                <div class="status-dot-active"></div>
+                <div>
+                    <div class="header-title">Multi-Agent IPC Messenger</div>
+                    <div class="header-subtitle">공유 메모리 순환 링 버퍼 실시간 모니터링</div>
+                </div>
+            </div>
+            <div class="channel-tag">sipc_demo_session</div>
+        </div>
+
+        <!-- 챗 이력 -->
+        <div class="chat-history" id="chatHistory">
+            <div class="system-message">공유 메모리 IPC 세션 대기 중...</div>
+        </div>
+
+        <!-- 입력창 -->
+        <div class="input-area">
+            <input type="text" class="chat-input" id="chatInput" placeholder="메인 AI에게 지시를 내리세요 (예: dummy.py 에러 수정해줘)..." autocomplete="off">
+            <button class="send-btn" id="sendBtn">
+                <svg viewBox="0 0 24 24">
+                    <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const chatHistory = document.getElementById('chatHistory');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // 메시지 전송 처리
+        function performSend() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+            
+            // 파이썬 Bridge API 호출
+            if (window.pywebview && window.pywebview.api) {
+                window.pywebview.api.send_user_message(text);
+                chatInput.value = '';
+            } else {
+                console.warn("Python Bridge API 가 아직 활성화되지 않았습니다.");
+            }
+        }
+
+        sendBtn.addEventListener('click', performSend);
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                performSend();
+            }
+        });
+
+        // UI에 메시지를 동적으로 추가하는 JS 함수 (파이썬에서 호출)
+        function addMessage(sender, text) {
+            // "공유 메모리 IPC 세션 대기 중..." 안내 메시지가 있으면 제거
+            const firstMsg = chatHistory.firstElementChild;
+            if (firstMsg && firstMsg.classList.contains('system-message') && firstMsg.innerText.includes('대기')) {
+                firstMsg.remove();
+            }
+
+            const row = document.createElement('div');
+            row.classList.add('message-row');
+            
+            // 발신자별 클래스 매핑
+            let displaySender = sender;
+            const senderKey = sender.toLowerCase();
+            
+            if (senderKey === 'user') {
+                row.classList.add('user');
+                displaySender = 'User (You)';
+            } else if (senderKey === 'main_ai' || senderKey === 'main ai') {
+                row.classList.add('main-ai');
+                displaySender = 'Main AI (Orchestrator)';
+            } else if (senderKey === 'agent_a' || senderKey === 'agent a') {
+                row.classList.add('agent-a');
+                displaySender = 'Agent A (Worker)';
+            } else if (senderKey === 'agent_b' || senderKey === 'agent b') {
+                row.classList.add('agent-b');
+                displaySender = 'Agent B (Reviewer)';
+            }
+
+            const senderDiv = document.createElement('div');
+            senderDiv.classList.add('message-sender');
+            senderDiv.innerText = displaySender;
+
+            const bubble = document.createElement('div');
+            bubble.classList.add('message-bubble');
+            bubble.innerText = text;
+
+            const timeDiv = document.createElement('div');
+            timeDiv.classList.add('message-time');
+            const now = new Date();
+            timeDiv.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            row.appendChild(senderDiv);
+            row.appendChild(bubble);
+            row.appendChild(timeDiv);
+            chatHistory.appendChild(row);
+
+            // 최신 메시지가 보이도록 부드럽게 스크롤링
+            chatHistory.scrollTo({
+                top: chatHistory.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // 시스템 로그 메시지 추가
+        function addSystemMessage(text) {
+            const sysDiv = document.createElement('div');
+            sysDiv.classList.add('system-message');
+            sysDiv.innerText = text;
+            chatHistory.appendChild(sysDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        // 기동 시 시스템 메시지 세팅
+        setTimeout(() => {
+            addSystemMessage("에이전트 스레드 기동 중... (Agent A 및 B 조인 시도)");
+        }, 300);
+    </script>
+</body>
+</html>

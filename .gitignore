@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Logs and databases
+log/
+logs/
+*.log
+*.sqlite
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+output/
+dist/
+build/
+
+# Local/Agent configurations
+graphify-out/
+.env
+.gemini/

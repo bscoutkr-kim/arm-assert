@@ -153,3 +153,18 @@ for node in analyst_nodes:
 workflow.add_edge("Final Report Node", END)
 app = workflow.compile()
 ```
+
+---
+
+## 5. 라이선스 및 보안 가이드라인 (Security & License Guidelines)
+
+사내 솔루션 개발 및 엄격한 보안 감사(Security Audit) 통과를 위해, 본 설계 구조를 실현할 때는 아래 지침을 의무적으로 준수해야 합니다.
+
+### 🔴 라이선스 가이드라인 (Clean-room Rewrite)
+- **외부 종목 분석 코드 의존성 제거**: `yfinance`, `ccxt`, `stockstats` 등 금융 수집 라이브러리는 Copyleft 라이선스 감염 리스크 및 비핵심 종속성이므로 사내 레포지토리 배포본에서 **반드시 완전히 삭제**합니다.
+- **개념적 재작성 권장**: LangGraph 프레임워크 자체(MIT License)는 합법적으로 임포트해 사용하되, `tradingagents` 소스 코드는 아키텍처적 설계 사상(State Dict 공유 및 Router를 통한 동적 순환 기법)만 참조 및 벤치마킹하고, **펌웨어 분석 로직 및 노드는 사내에서 제로베이스(Scratch)로 독자 구현(In-house 개발)**할 것을 강력히 권장합니다.
+
+### 🔒 데이터 및 소스 보안 가이드라인 (On-Premise LLM)
+- **사내망 폐쇄형 AI 서빙**: T32 레지스터 덤프 데이터, UART 크래시 로그, 소스 코드 조각은 최고 등급의 영업비밀에 해당합니다. 클라우드 LLM API(OpenAI, Anthropic 등) 호출을 엄격히 금지하며, 사내 GPU 인프라에 **Local LLM(예: Qwen-2.5-Coder-32B, Llama-3-70B 등)**을 프라이빗 서빙(via Ollama, vLLM)하여 온프레미스 API 엔드포인트만 연결해 사용해야 합니다.
+- **로컬 정적 분석 연동**: 소스 코드 디버깅 및 분석 시, 외부 원격 서버 연동 정적 분석 툴 대신 사내 폐쇄망에 구축된 로컬 소나큐브(SonarQube) 또는 Clang-Tidy 등의 CLI 분석 결과를 에이전트가 로컬 파일 파싱 방식으로 읽어와 컨텍스트로 취급하도록 설계합니다.
+

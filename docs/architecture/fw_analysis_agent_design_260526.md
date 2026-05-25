@@ -154,6 +154,75 @@ workflow.add_edge("Final Report Node", END)
 app = workflow.compile()
 ```
 
+### D. 에이전트 노드 구현 예시 (Agent Node Implementation Example)
+각 분석 영역별 노드(`frame_up_node`, `nand_node` 등)가 `FailureState` 상태를 받아 어떻게 LLM을 호출하고 상태를 동적으로 갱신하여 반환하는지 보여주는 구체적인 파이썬 구현 예시입니다.
+
+```python
+import json
+from tradingagents.llm_clients import create_llm_client
+from .agent_states import FailureState
+
+def frame_up_node(state: FailureState) -> FailureState:
+    """T32 Dump 및 레지스터 정보를 정밀 분석하는 Frame Up Analyst 에이전트 노드"""
+    
+    # 1. 이전 누적 히스토리 및 분석 타겟 데이터 로드
+    t32_dump_file = state["t32_dump_path"]
+    current_history = state["analysis_history"]
+    
+    # 2. 로컬 디바이스 디버거 덤프 정보 가상 파싱 (실제 솔루션 환경에선 로컬 CLI 파서 활용)
+    # mock_dump_data = load_t32_registers(t32_dump_file)
+    mock_dump_data = "CPU REGISTER - PC: 0x08001F2A, SP: 0x20003FE8 (Usage fault Exception)"
+    
+    # 3. 온프레미스 AI 전용 구조화 프롬프트 작성
+    prompt = f"""
+    당신은 임베디드 펌웨어 레지스터 덤프 분석 전문가(Frame Up Analyst)입니다.
+    
+    [입력 데이터]
+    - T32 덤프 상태: {mock_dump_data}
+    - 누적 분석 히스토리: {current_history}
+    
+    [수행 미션]
+    위 레지스터 덤프와 히스토리를 분석해 Usage fault 가설을 수립하고,
+    다음 턴에 심층 검증해야 할 분석 영역을 아래 선택지 중 하나로 선택하십시오.
+    - 선택지: "cross_core" (멀티코어 락 경합 의심), "nand_analysis" (플래시 메모리 읽기 불량 의심), "root_cause" (근본 원인 정리로 이동), "final" (종료)
+    
+    [출력 형식(JSON)]
+    {{
+        "hypothesis": "불량의 추정 가설 요약",
+        "next_analysis_area": "선택지 문자열 중 하나",
+        "detailed_analysis": "그렇게 분석한 상세한 기술적 근거"
+    }}
+    """
+    
+    # 4. 사내 프라이빗 온프레미스 AI 클라이언트 호출 (MIT 라이선스 LLM 팩토리 활용)
+    # client = create_llm_client(provider="openai", base_url="http://10.x.x.x:8000/v1", model="qwen-2.5-coder")
+    # llm = client.get_llm()
+    # response = llm.invoke(prompt)
+    # result = json.loads(response.content)
+    
+    # 가상의 로컬 LLM 추론 반환 결과 예시
+    result = {
+        "hypothesis": "PC가 0x08001F2A를 지시함. NAND 플래시에서 버퍼로 데이터를 리드하던 중 데이터 오염(Corruption)으로 인한 예외 유발 가능성 90%",
+        "next_analysis_area": "nand_analysis",
+        "detailed_analysis": "Usage fault 오프셋이 NAND 플래시 컨트롤러의 버퍼 카피 루틴 내부임이 확인됨. NAND 데이터 무결성 검사 필요."
+    }
+    
+    # 5. 분석 히스토리에 새 발언 보고서 추가
+    new_report = {
+        "speaker": "Frame Up Analyst",
+        "analysis": result["detailed_analysis"],
+        "hypothesis": result["hypothesis"]
+    }
+    
+    # 6. 동적 제어를 갱신한 갱신 상태 딕셔너리 반환 (Router로 전송)
+    return {
+        "rounds_left": state["rounds_left"] - 1, # 턴 1차감
+        "next_analysis_area": result["next_analysis_area"], # 동적 다음 분기 타겟 기입
+        "current_hypothesis": result["hypothesis"],
+        "analysis_history": state["analysis_history"] + [new_report]
+    }
+```
+
 ---
 
 ## 5. 라이선스 및 보안 가이드라인 (Security & License Guidelines)

@@ -4,22 +4,28 @@ from typing import Any, Dict
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
-from tradingagents.agents import (
-    create_market_analyst,
-    create_sentiment_analyst,
-    create_news_analyst,
-    create_fundamentals_analyst,
-    create_bull_researcher,
-    create_bear_researcher,
-    create_research_manager,
-    create_trader,
-    create_aggressive_debator,
-    create_neutral_debator,
-    create_conservative_debator,
-    create_portfolio_manager,
-    create_msg_delete,
-)
+# 로컬 덤프/목업 에이전트 정의 (보안/라이선스를 위해 삭제된 외부 금융 에이전트를 모방)
+def create_dummy_agent(name: str):
+    def dummy_node(state: Any) -> Dict[str, Any]:
+        return {"messages": []}
+    return dummy_node
+
+create_market_analyst = lambda llm: create_dummy_agent("Market")
+create_sentiment_analyst = lambda llm: create_dummy_agent("Sentiment")
+create_news_analyst = lambda llm: create_dummy_agent("News")
+create_fundamentals_analyst = lambda llm: create_dummy_agent("Fundamentals")
+create_bull_researcher = lambda llm: create_dummy_agent("Bull Researcher")
+create_bear_researcher = lambda llm: create_dummy_agent("Bear Researcher")
+create_research_manager = lambda llm: create_dummy_agent("Research Manager")
+create_trader = lambda llm: create_dummy_agent("Trader")
+create_aggressive_debator = lambda llm: create_dummy_agent("Aggressive")
+create_neutral_debator = lambda llm: create_dummy_agent("Neutral")
+create_conservative_debator = lambda llm: create_dummy_agent("Conservative")
+create_portfolio_manager = lambda llm: create_dummy_agent("Portfolio Manager")
+
+from tradingagents.agents import create_msg_delete
 from tradingagents.agents.utils.agent_states import AgentState
+
 
 from .analyst_execution import build_analyst_execution_plan
 from .conditional_logic import ConditionalLogic

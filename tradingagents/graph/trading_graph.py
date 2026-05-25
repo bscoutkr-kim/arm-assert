@@ -7,8 +7,10 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, Tuple, Optional
 
-import yfinance as yf
+# yfinance 임포트 제거 (보안/라이선스를 위한 목업화)
+yf = None
 from langgraph.prebuilt import ToolNode
+
 
 from tradingagents.llm_clients import create_llm_client
 from tradingagents.default_config import DEFAULT_CONFIG
@@ -210,41 +212,13 @@ class TradingAgentsGraph:
         self, ticker: str, trade_date: str, holding_days: int = 5,
         benchmark: str = "SPY",
     ) -> Tuple[Optional[float], Optional[float], Optional[int]]:
-        """Fetch raw and alpha return for ticker over holding_days from trade_date.
+        """yfinance 의존성 제거를 위한 가상 목업 리턴 처리"""
+        # 더미 수익률 데이터 반환 (실제 yfinance API 호출 방지)
+        dummy_raw_return = 0.05
+        dummy_alpha_return = 0.02
+        actual_days = holding_days
+        return dummy_raw_return, dummy_alpha_return, actual_days
 
-        ``benchmark`` is the index used as the alpha baseline (resolved by the
-        caller via ``_resolve_benchmark``). Returns ``(raw_return, alpha_return,
-        actual_holding_days)`` or ``(None, None, None)`` if price data is
-        unavailable (too recent, delisted, or network error).
-        """
-        try:
-            start = datetime.strptime(trade_date, "%Y-%m-%d")
-            end = start + timedelta(days=holding_days + 7)  # buffer for weekends/holidays
-            end_str = end.strftime("%Y-%m-%d")
-
-            stock = yf.Ticker(ticker).history(start=trade_date, end=end_str)
-            bench = yf.Ticker(benchmark).history(start=trade_date, end=end_str)
-
-            if len(stock) < 2 or len(bench) < 2:
-                return None, None, None
-
-            actual_days = min(holding_days, len(stock) - 1, len(bench) - 1)
-            raw = float(
-                (stock["Close"].iloc[actual_days] - stock["Close"].iloc[0])
-                / stock["Close"].iloc[0]
-            )
-            bench_ret = float(
-                (bench["Close"].iloc[actual_days] - bench["Close"].iloc[0])
-                / bench["Close"].iloc[0]
-            )
-            alpha = raw - bench_ret
-            return raw, alpha, actual_days
-        except Exception as e:
-            logger.warning(
-                "Could not resolve outcome for %s on %s vs %s (will retry next run): %s",
-                ticker, trade_date, benchmark, e,
-            )
-            return None, None, None
 
     def _resolve_pending_entries(self, ticker: str) -> None:
         """Resolve pending log entries for ticker at the start of a new run.

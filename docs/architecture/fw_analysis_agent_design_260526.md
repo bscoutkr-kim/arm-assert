@@ -266,3 +266,48 @@ def frame_up_node(state: FailureState) -> FailureState:
 - **사내망 폐쇄형 AI 서빙**: T32 레지스터 덤프 데이터, UART 크래시 로그, 소스 코드 조각은 최고 등급의 영업비밀에 해당합니다. 클라우드 LLM API(OpenAI, Anthropic 등) 호출을 엄격히 금지하며, 사내 GPU 인프라에 **Local LLM(예: Qwen-2.5-Coder-32B, Llama-3-70B 등)**을 프라이빗 서빙(via Ollama, vLLM)하여 온프레미스 API 엔드포인트만 연결해 사용해야 합니다.
 - **로컬 정적 분석 연동**: 소스 코드 디버깅 및 분석 시, 외부 원격 서버 연동 정적 분석 툴 대신 사내 폐쇄망에 구축된 로컬 소나큐브(SonarQube) 또는 Clang-Tidy 등의 CLI 분석 결과를 에이전트가 로컬 파일 파싱 방식으로 읽어와 컨텍스트로 취급하도록 설계합니다.
 
+---
+
+## 6. T32 MCP 인프라 동시성 및 락 설계 가이드 (T32 MCP Concurrency & Lock Guidelines)
+
+여러 에이전트 노드들이 멀티로 동시에 TRACE32 Simulator MCP 서버를 호출하여 변수 및 메모리 상태를 조회할 때, 발생 가능한 **하드웨어/시뮬레이터 자원 경합(Resource Contention)**을 원천 차단하기 위한 연동 아키텍처 가이드입니다.
+
+### ⚠️ 동시성 리스크와 무제한 동시 호출의 문제점
+- **TRACE32의 단일 연결 제약**: TRACE32 Simulator 인스턴스는 본질적으로 **단일 UDP/TCP 접속 포트**를 기반으로 디버깅 세션을 유일하게 유지합니다. 
+- **컨텍스트 오염 및 세션 크래시**: 복수의 에이전트가 단일 T32 Simulator 인스턴스에 동시에 명령어(예: 특정 로컬 변수나 CPU 레지스터 값 조회)를 밀어 넣으면, 디버거 내부 레지스터 포인터가 꼬이거나 접속 세션이 비정상 종료(Disconnect)되고 데이터가 오염(Race Condition)되는 참사가 발생합니다.
+
+### 🔒 해결 방안: MCP 서버 단에서의 비동기 쿼리 직렬화 (Query Serialization)
+이를 우회하기 위해 다수의 T32 Simulator 프로세스를 띄우는 것(라이선스 낭비 및 사양 과부하)보다, **T32 MCP 서버 단에서 비동기 락(Async Mutex Lock)을 기동하여 들어오는 조회를 FIFO(First-In, First-Out)로 직렬화(Serialization)**하는 것이 가장 안정적이고 효율적인 아키텍처입니다.
+
+#### [Python T32 MCP 서버 비동기 Mutex 적용 예시]
+```python
+import asyncio
+from mcp.server.fastmcp import FastMCP
+
+# FastMCP 서버 인스턴스 선언
+mcp = FastMCP("T32-Service")
+
+# TRACE32 Simulator 자원에 대한 동시 접근을 통제할 글로벌 비동기 락 선언
+t32_resource_lock = asyncio.Lock()
+
+@mcp.tool()
+async def read_t32_variable(var_name: str, t32_sim_port: int = 20000) -> str:
+    """T32 Simulator 세션에서 지정한 전역/지역 변수의 값을 안전하게 리드합니다."""
+    
+    # 1. 락을 획득할 때까지 다른 에이전트의 쿼리는 큐(Queue)에서 비동기 대기
+    async with t32_resource_lock:
+        try:
+            # 2. 오직 단 하나의 에이전트 쿼리만 이 블록에 진입하여 시뮬레이터와 통신
+            # val = query_t32_api(port=t32_sim_port, command=f"v.value({var_name})")
+            val = f"MOCKED_T32_VALUE_OF_{var_name}" # 실제 시뮬레이터 응답
+            return f"SUCCESS: {var_name} = {val}"
+            
+        except Exception as e:
+            return f"ERROR: T32 Simulator 통신 실패: {str(e)}"
+```
+
+### 💡 실무 권고사항
+- **비동기 락의 타임아웃 처리**: 시뮬레이터 응답 지연으로 다른 에이전트가 락 대기 상태에 무한정 갇히지 않도록, `asyncio.wait_for()`를 활용하여 최대 5초 내외의 쿼리 타임아웃 처리를 필수적으로 가미합니다.
+- **직렬화 비용 최소화**: TRACE32 API 메모리 통신은 매우 고속(수 ms 이내)으로 작동하므로, 에이전트들이 큐에서 대기하는 지연 시간(Queueing Delay)은 사람이 인지할 수 없을 정도로 극미하여 병목 현상을 유발하지 않습니다.
+
+
